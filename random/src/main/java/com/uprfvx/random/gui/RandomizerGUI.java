@@ -3950,6 +3950,17 @@ public class RandomizerGUI {
         spTypeNoneRadioButton.setToolTipText("No type restrictions for Modern Emerald starters.");
         spAllowAltFormesCheckBox.setSelected(true);
         spAllowAltFormesCheckBox.setToolTipText("Automatic form weighting, as for wild Pokemon; only basic choices are eligible.");
+        igtUnchangedRadioButton.setEnabled(true);
+        igtRandomizeBothRequestedGivenRadioButton.setEnabled(true);
+        igtUnchangedRadioButton.setToolTipText("Keep Modern Emerald's four ordinary NPC trades.");
+        igtRandomizeBothRequestedGivenRadioButton.setToolTipText("<html>Randomize both sides of the four NPC trades."
+                + "<br>Requests accept any form with the same displayed species name."
+                + "<br>Native trade evolutions remain active. Wonder Trade and self-trade machines are unchanged.</html>");
+        boolean trades = igtRandomizeBothRequestedGivenRadioButton.isSelected();
+        igtRandomizeNicknamesCheckBox.setEnabled(trades);
+        igtRandomizeNicknamesCheckBox.setToolTipText("Distinct gender-neutral nicknames, at most 10 letters each.");
+        igtRandomizeIVsCheckBox.setEnabled(trades);
+        igtRandomizeIVsCheckBox.setToolTipText("Random IVs from 0-31. The game's perfect-IV mode still overrides these with 31s.");
         cpgSelection.setEnabled(false);
         cpgSelection.setVisible(true);
     }

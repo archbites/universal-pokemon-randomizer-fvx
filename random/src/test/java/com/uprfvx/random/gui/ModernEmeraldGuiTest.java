@@ -50,7 +50,9 @@ class ModernEmeraldGuiTest {
                                 || f.getName().equals("mdRandomizeMovePPCheckBox")
                                 || f.getName().equals("wpRandomizeWildPokemonCheckBox")
                                 || f.getName().equals("spUnchangedRadioButton")
-                                || f.getName().equals("spRandomBasicRadioButton");
+                                || f.getName().equals("spRandomBasicRadioButton")
+                                || f.getName().equals("igtUnchangedRadioButton")
+                                || f.getName().equals("igtRandomizeBothRequestedGivenRadioButton");
                         assertEquals(allowed, component.isEnabled(), f.getName());
                     }
                     for (String name : List.of("noRandomIntroMonCheckBox", "mdRandomizeMovePowerCheckBox",
@@ -89,7 +91,23 @@ class ModernEmeraldGuiTest {
                         assertFalse(((JComponent) field(gui, name)).isEnabled(), name);
                     }
                     Settings imported = new Settings();
+                    ((JRadioButton) field(gui, "igtRandomizeBothRequestedGivenRadioButton")).doClick();
+                    for (String name : List.of("igtRandomizeNicknamesCheckBox", "igtRandomizeIVsCheckBox")) {
+                        assertTrue(((JCheckBox) field(gui, name)).isEnabled(), name);
+                        ((JCheckBox) field(gui, name)).doClick();
+                    }
+                    for (String name : List.of("igtRandomizeGivenPokemonOnlyRadioButton",
+                            "igtRandomizeOTsCheckBox", "igtRandomizeItemsCheckBox")) {
+                        assertFalse(((JComponent) field(gui, name)).isEnabled(), name);
+                    }
+                    ((JRadioButton) field(gui, "igtUnchangedRadioButton")).doClick();
+                    assertFalse(((JCheckBox) field(gui, "igtRandomizeNicknamesCheckBox")).isEnabled());
                     imported.setSelectedEXPCurve(ExpCurve.MEDIUM_FAST);
+                    imported.setInGameTradesMod(Settings.InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED);
+                    imported.setRandomizeInGameTradesNicknames(true);
+                    imported.setRandomizeInGameTradesIVs(true);
+                    imported.setRandomizeInGameTradesOTs(true);
+                    imported.setRandomizeInGameTradesItems(true);
                     imported.setRandomizeWildPokemon(true);
                     imported.setRandomizeMovePPs(true);
                     imported.setStartersMod(Settings.StartersMod.RANDOM_BASIC);
@@ -113,6 +131,11 @@ class ModernEmeraldGuiTest {
                     assertTrue(exported.isRandomizeMovePPs());
                     assertEquals(Settings.StartersMod.RANDOM_BASIC, exported.getStartersMod());
                     assertEquals(Settings.StartersTypeMod.NONE, exported.getStartersTypeMod());
+                    assertEquals(Settings.InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED, exported.getInGameTradesMod());
+                    assertTrue(exported.isRandomizeInGameTradesNicknames());
+                    assertTrue(exported.isRandomizeInGameTradesIVs());
+                    assertFalse(exported.isRandomizeInGameTradesOTs());
+                    assertFalse(exported.isRandomizeInGameTradesItems());
                     modern.setStarters(List.of(modern.getSpeciesForInternalId(417),
                             modern.getSpeciesForInternalId(454), modern.getSpeciesForInternalId(459)));
                     invoke(gui, "populateDropdowns");

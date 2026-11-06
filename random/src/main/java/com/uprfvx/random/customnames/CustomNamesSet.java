@@ -23,6 +23,8 @@ package com.uprfvx.random.customnames;
 /*----------------------------------------------------------------------------*/
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,8 +61,16 @@ public record CustomNamesSet(List<String> trainerNames, List<String> trainerClas
     }
 
     private static List<String> readLines(String path) throws IOException {
-        return Files.readAllLines(Path.of(path), StandardCharsets.UTF_8).stream()
-                .map(String::trim).map(String::strip).toList();
+        if (Files.exists(Path.of(path))) {
+            return Files.readAllLines(Path.of(path), StandardCharsets.UTF_8).stream().map(String::strip).toList();
+        }
+        // Standalone JARs also carry the defaults; external files still take precedence.
+        try (var stream = CustomNamesSet.class.getResourceAsStream("/" + path)) {
+            if (stream == null) throw new IOException("Missing names: " + path);
+            try (var reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                return reader.lines().map(String::strip).toList();
+            }
+        }
     }
 
     public static void writeNamesToFile(CustomNamesSet customNamesSet) throws IOException {

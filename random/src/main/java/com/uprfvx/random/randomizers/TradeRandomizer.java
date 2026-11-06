@@ -4,6 +4,7 @@ import com.uprfvx.random.Settings;
 import com.uprfvx.random.customnames.CustomNamesSet;
 import com.uprfvx.romio.gamedata.*;
 import com.uprfvx.romio.romhandlers.RomHandler;
+import com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,12 @@ public class TradeRandomizer extends Randomizer {
     }
 
     public void randomizeIngameTrades() {
+        if (romHandler instanceof ModernEmeraldRomHandler modern) {
+            ModernEmeraldTradeRandomizer.randomize(modern, settings, random,
+                    settings.isRandomizeInGameTradesNicknames() ? getCustomNames().pokemonNicknames() : List.of());
+            changesMade = true;
+            return;
+        }
         boolean randomizeRequest = settings.getInGameTradesMod() == Settings.InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED;
         boolean randomNickname = settings.isRandomizeInGameTradesNicknames();
         boolean randomOT = settings.isRandomizeInGameTradesOTs();

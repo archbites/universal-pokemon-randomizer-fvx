@@ -31,6 +31,7 @@ import java.util.Objects;
 public class InGameTrade {
 
     private Species requestedSpecies;
+    private final boolean altFormesAllowed;
     private final SpeciesHolder givenSpeciesHolder;
 
     private String nickname;
@@ -54,8 +55,18 @@ public class InGameTrade {
      * @throws NullPointerException if givenSpecies is null.
      */
     public InGameTrade(Species requestedSpecies, Species givenSpecies) {
+        this(requestedSpecies, givenSpecies, false);
+    }
+
+    /** Opt-in for ROMs whose trade table stores distinct species IDs for alternate forms. */
+    public InGameTrade(Species requestedSpecies, Species givenSpecies, boolean allowAltFormes) {
+        this.altFormesAllowed = allowAltFormes;
         setRequestedSpecies(requestedSpecies);
-        this.givenSpeciesHolder = new SpeciesHolder(givenSpecies);
+        this.givenSpeciesHolder = new SpeciesHolder(allowAltFormes ? givenSpecies.getBaseForme() : givenSpecies);
+        if (allowAltFormes) {
+            this.givenSpeciesHolder.setAltFormeAllowed();
+            this.givenSpeciesHolder.setSpecies(givenSpecies);
+        }
     }
 
     public Species getRequestedSpecies() {
@@ -64,12 +75,13 @@ public class InGameTrade {
 
     /**
      * Sets the {@link Species} which is requested by the trader.
-     * It must be either a base forme, or null (which represents "any Pokémon").
+     * It must be either a base forme, or null (which represents "any Pokémon"),
+     * unless alternate forms were explicitly enabled at construction.
      * Note that the null behavior might not be supported by all RomHandlers.
-     * @throws IllegalArgumentException if requestedSpecies is an alt forme.
+     * @throws IllegalArgumentException if requestedSpecies is an alt forme and alternate forms are disabled.
      */
     public void setRequestedSpecies(Species requestedSpecies) {
-        if (requestedSpecies != null && !requestedSpecies.isBaseForme()) {
+        if (requestedSpecies != null && !requestedSpecies.isBaseForme() && !altFormesAllowed) {
             throw new IllegalArgumentException("requestedSpecies (" + requestedSpecies.getNumberAndFullName()
                     + ") is not a base forme.");
         }

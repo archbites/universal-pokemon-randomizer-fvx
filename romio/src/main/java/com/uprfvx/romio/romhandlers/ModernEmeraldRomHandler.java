@@ -14,7 +14,7 @@ import java.util.*;
 /**
  * Deliberately narrow support for the supplied Modern Emerald 3.6 release.
  * Never runs Gen3's map preprocessing, free-space reclamation, or unconditional vanilla writers.
- * Only verified move fields, wild slots, and basic starters are writable. Offsets come from matching 3.6 symbols.
+ * Only verified move fields, wild slots, basic starters and NPC trades are writable.
  */
 public class ModernEmeraldRomHandler extends Gen3RomHandler {
     public static final int MOVE_DATA = 0x8E0898;
@@ -25,7 +25,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private static final int SPECIES_INFO = 0x8E5960;
     public static final int OUTBREAK_MOVES_PATCH = 0x21CA78;
     private static final String FINGERPRINT =
-            "d9d764175bae2d90aff9d20ddd4f561c9955951ac3633f6b025f189c915028e4";
+            "096c81b4884864f64a56a01e8cadeead64b86fb8ba4c4e9d6ccd1a1a1ea514c0";
     private static final int[] WRITABLE_OFFSETS = buildWritableOffsets();
 
     private static int[] buildWritableOffsets() {
@@ -47,6 +47,16 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         for (var text : ModernEmeraldStarterData.TYPE_EXAMPLES) {
             for (int i = 13; i < text.length(); i++) offsets.add(text.offset() + i);
         }
+        for (int trade = 0; trade < ModernEmeraldTradeData.COUNT; trade++) {
+            int offset = ModernEmeraldTradeData.offset(trade);
+            for (int i = 0; i < 11; i++) offsets.add(offset + i);
+            for (int i : new int[]{12, 13, 20, 21, 22, 23, 24, 25, 26, 40, 41, 42, 43, 60, 61}) offsets.add(offset + i);
+        }
+        for (var text : ModernEmeraldTradeData.FOLLOW_UP_TEXT) {
+            for (int i = 0; i < text.length(); i++) offsets.add(text.offset() + i);
+        }
+        for (int i = 0; i < 4; i++) offsets.add(ModernEmeraldTradeData.REQUEST_SPECIAL_POINTER + i);
+        for (int i = 0; i < ModernEmeraldTradeData.requestCode().length; i++) offsets.add(ModernEmeraldTradeData.REQUEST_ROUTINE + i);
         return offsets.stream().mapToInt(Integer::intValue).toArray();
     }
 
@@ -71,6 +81,8 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private List<Species> modernStarters;
     private boolean startersChanged;
     private Set<Integer> evolvedSpecies;
+    private List<InGameTrade> modernTrades;
+    private boolean tradesChanged;
 
     /** Public GF header is preserved by the decomp; its expanded dex distinguishes it from retail. */
     static boolean hasExpandedEmeraldHeader(byte[] image) {
@@ -92,6 +104,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
             }
             digest.update(image, start, image.length - start);
             if (!HexFormat.of().formatHex(digest.digest()).equals(FINGERPRINT)) return false;
+            if (!ModernEmeraldTradeData.validRequestPatch(image)) return false;
             // Only the original LDR or our branch to the existing success epilogue is allowed here.
             if ((image[OUTBREAK_MOVES_PATCH] & 255) != 0x0B
                     || ((image[OUTBREAK_MOVES_PATCH + 1] & 255) != 0x4E
@@ -109,6 +122,20 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
                 int internal = ModernEmeraldStarterData.word(image, ModernEmeraldStarterData.STARTERS + slot * 2);
                 if (!ModernEmeraldSpeciesCatalog.isEligible(internal) || evolved.contains(internal)
                         || !choices.add(ModernEmeraldSpeciesCatalog.selectionKey(internal))) return false;
+            }
+            for (int trade = 0; trade < ModernEmeraldTradeData.COUNT; trade++) {
+                int offset = ModernEmeraldTradeData.offset(trade);
+                if (!ModernEmeraldSpeciesCatalog.isEligible(ModernEmeraldStarterData.word(image, offset + 12))
+                        || !ModernEmeraldSpeciesCatalog.isEligible(ModernEmeraldStarterData.word(image, offset + 60))) return false;
+                for (int i = 20; i < 26; i++) if ((image[offset + i] & 255) > 31) return false;
+                if ((image[offset + 26] & 255) > 1) return false;
+                boolean terminated = false;
+                for (int i = 0; i < 11; i++) {
+                    int character = image[offset + i] & 255;
+                    if (character == 255) { terminated = i > 0; break; }
+                    if (character < 0xBB || character > 0xEE) return false;
+                }
+                if (!terminated) return false;
             }
             return true;
         } catch (NoSuchAlgorithmException e) {
@@ -144,6 +171,8 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         startersChanged = false;
         modernEncounters = ModernEmeraldEncounterData.read(rom, speciesByInternal::get);
         wildRandomized = false;
+        loadTrades();
+        tradesChanged = false;
         trainers.clear();
         trainerClasses.clear();
     }
@@ -279,6 +308,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
             writeWord(ModernEmeraldStarterData.STARTERS + slot * 2, getInternalId(modernStarters.get(slot)));
         }
         if (startersChanged) ModernEmeraldStarterData.makeTypeExamplesGeneric(rom);
+        saveTrades();
     }
 
     @Override public boolean saveRom(String filename, long seed, boolean directory) {
@@ -297,7 +327,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         return valid;
     }
 
-    @Override public String getSupportLevel() { return "Partial (basic starters, wild Pokemon, move accuracy and PP; grey options are TODO)"; }
+    @Override public String getSupportLevel() { return "Partial (basic starters, wild Pokemon, NPC trades, move accuracy and PP; grey options are TODO)"; }
     @Override public List<Species> getSpecies() { return Collections.unmodifiableList(species); }
     @Override public List<Species> getSpeciesInclFormes() { return Collections.unmodifiableList(speciesWithFormes); }
     @Override public SpeciesSet getAltFormes() {
@@ -349,7 +379,107 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     @Override public List<Integer> getTMMoves() { return List.of(); }
     @Override public List<Integer> getMoveTutorMoves() { return List.of(); }
     @Override public List<StaticEncounter> getStaticPokemon() { return List.of(); }
-    @Override public List<InGameTrade> getInGameTrades() { return List.of(); }
+    private void loadTrades() {
+        modernTrades = new ArrayList<>();
+        for (int i = 0; i < ModernEmeraldTradeData.COUNT; i++) {
+            int offset = ModernEmeraldTradeData.offset(i);
+            var trade = new InGameTrade(speciesByInternal.get(readWord(offset + 60)),
+                    speciesByInternal.get(readWord(offset + 12)), true);
+            trade.setNickname(readFixedLengthString(offset, 11));
+            trade.setOtName(readFixedLengthString(offset + 47, 11));
+            trade.setOtId((int) unsignedWord32(rom, offset + 28));
+            trade.setHeldItem(new Item(readWord(offset + 44), "Original trade item"));
+            trade.setIVs(java.util.stream.IntStream.range(20, 26).map(n -> rom[offset + n] & 255).toArray());
+            if (getInternalId(trade.getGivenSpecies()) == 201) {
+                trade.getGivenSpeciesHolder().setFormeNumber(ModernEmeraldTradeData.unownLetter(unsignedWord32(rom, offset + 40)));
+            }
+            modernTrades.add(trade);
+        }
+    }
+
+    private static long unsignedWord32(byte[] image, int offset) {
+        return Integer.toUnsignedLong((image[offset] & 255) | ((image[offset + 1] & 255) << 8)
+                | ((image[offset + 2] & 255) << 16) | ((image[offset + 3] & 255) << 24));
+    }
+
+    private static InGameTrade copyTrade(InGameTrade old) {
+        var copy = new InGameTrade(old.getRequestedSpecies(), old.getGivenSpecies(), true);
+        copy.getGivenSpeciesHolder().setFormeNumber(old.getGivenSpeciesHolder().getFormeNumber());
+        copy.setNickname(old.getNickname());
+        copy.setOtName(old.getOtName());
+        copy.setOtId(old.getOtId());
+        copy.setHeldItem(old.getHeldItem());
+        copy.setIVs(old.getIVs().clone());
+        return copy;
+    }
+
+    @Override public List<InGameTrade> getInGameTrades() {
+        return modernTrades.stream().map(ModernEmeraldRomHandler::copyTrade).toList();
+    }
+
+    @Override public void setInGameTrades(List<InGameTrade> trades) {
+        if (trades.size() != ModernEmeraldTradeData.COUNT) throw new IllegalArgumentException("Exactly four NPC trades required");
+        for (int i = 0; i < trades.size(); i++) {
+            var trade = trades.get(i);
+            var old = modernTrades.get(i);
+            getInternalId(trade.getRequestedSpecies());
+            getInternalId(trade.getGivenSpecies());
+            if (trade.getIVs().length != 6 || Arrays.stream(trade.getIVs()).anyMatch(iv -> iv < 0 || iv > 31)
+                    || !Objects.equals(old.getHeldItem(), trade.getHeldItem()) || old.getOtId() != trade.getOtId()
+                    || !old.getOtName().equals(trade.getOtName())) throw new IllegalArgumentException("Unsupported trade field change");
+            if (!trade.getNickname().equals(old.getNickname()) && !isTradeNicknameValid(trade.getNickname())) {
+                throw new IllegalArgumentException("Nickname must contain 1-10 supported letters: " + trade.getNickname());
+            }
+        }
+        modernTrades = trades.stream().map(ModernEmeraldRomHandler::copyTrade).toList();
+        tradesChanged = true;
+    }
+
+    public boolean isTradeNicknameValid(String name) {
+        return name != null && name.matches("[A-Za-z]{1,10}")
+                && name.chars().allMatch(c -> d.containsKey(String.valueOf((char)c)));
+    }
+
+    private void saveTrades() {
+        for (int i = 0; i < modernTrades.size(); i++) {
+            var trade = modernTrades.get(i);
+            int offset = ModernEmeraldTradeData.offset(i);
+            writeWord(offset + 12, getInternalId(trade.getGivenSpecies()));
+            writeWord(offset + 60, getInternalId(trade.getRequestedSpecies()));
+            for (int stat = 0; stat < 6; stat++) rom[offset + 20 + stat] = (byte) trade.getIVs()[stat];
+            // The original first trade forces slot 2, even when a new species has no second ability.
+            // Keep that slot where it exists; otherwise select the native first ability.
+            if (tradesChanged && rom[offset + 26] != 0 && trade.getGivenSpecies().getAbility2() == 0) {
+                rom[offset + 26] = 0;
+            }
+            if (!trade.getNickname().equals(readFixedLengthString(offset, 11))) {
+                writeModernText(offset, 11, trade.getNickname());
+            }
+            if (getInternalId(trade.getGivenSpecies()) == 201) {
+                long original = unsignedWord32(rom, offset + 40);
+                int letter = trade.getGivenSpeciesHolder().getFormeNumber();
+                if (ModernEmeraldTradeData.unownLetter(original) != letter) {
+                    long personality = ModernEmeraldTradeData.unownPersonality(original, unsignedWord32(rom, offset + 28), letter);
+                    for (int b = 0; b < 4; b++) rom[offset + 40 + b] = (byte) (personality >>> (8 * b));
+                }
+            }
+        }
+        if (tradesChanged) {
+            ModernEmeraldTradeData.patchRequestComparison(rom);
+            for (var text : ModernEmeraldTradeData.FOLLOW_UP_TEXT) {
+                writeModernText(text.offset(), text.length(), text.replacement());
+            }
+        }
+    }
+
+    private void writeModernText(int offset, int length, String text) {
+        if (text.length() >= length) throw new IllegalArgumentException("Text does not fit");
+        Arrays.fill(rom, offset, offset + length, (byte) 255);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            rom[offset + i] = c == '\n' ? (byte) 0xFE : Objects.requireNonNull(d.get(String.valueOf(c)));
+        }
+    }
     @Override public boolean hasCustomPlayerGraphicsSupport() { return false; }
     @Override public boolean hasPokemonPaletteSupport() { return false; }
     @Override public boolean hasMoveTutors() { return false; }
