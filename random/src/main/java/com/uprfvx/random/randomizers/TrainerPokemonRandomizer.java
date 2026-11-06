@@ -788,6 +788,11 @@ public class TrainerPokemonRandomizer extends Randomizer {
     }
 
     public void makeRivalCarryStarter() {
+        if (romHandler instanceof com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler modern) {
+            modern.updateRivalStarters(random);
+            changesMade = true;
+            return;
+        }
         List<Trainer> currentTrainers = romHandler.getTrainers();
         rivalCarriesStarterUpdate(currentTrainers, "RIVAL", 1);
         rivalCarriesStarterUpdate(currentTrainers, "FRIEND", 2);

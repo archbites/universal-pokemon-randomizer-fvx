@@ -25,7 +25,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private static final int SPECIES_INFO = 0x8E5960;
     public static final int OUTBREAK_MOVES_PATCH = 0x21CA78;
     private static final String FINGERPRINT =
-            "096c81b4884864f64a56a01e8cadeead64b86fb8ba4c4e9d6ccd1a1a1ea514c0";
+            "d0eda5c1fc841c1d7678b9312e4b7b215e4602a8658754b0e6158be11e5f0237";
     private static final int[] WRITABLE_OFFSETS = buildWritableOffsets();
 
     private static int[] buildWritableOffsets() {
@@ -57,6 +57,11 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         }
         for (int i = 0; i < 4; i++) offsets.add(ModernEmeraldTradeData.REQUEST_SPECIAL_POINTER + i);
         for (int i = 0; i < ModernEmeraldTradeData.requestCode().length; i++) offsets.add(ModernEmeraldTradeData.REQUEST_ROUTINE + i);
+        for (var rival : ModernEmeraldRivalData.BINDINGS) {
+            offsets.add(rival.speciesOffset());
+            offsets.add(rival.speciesOffset() + 1);
+            if (rival.customFlagOffset() != 0) offsets.add(rival.customFlagOffset());
+        }
         return offsets.stream().mapToInt(Integer::intValue).toArray();
     }
 
@@ -85,6 +90,8 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private Map<Integer, Integer> levelCoverageMasks;
     private List<InGameTrade> modernTrades;
     private boolean tradesChanged;
+    private final Map<Integer, Integer> rivalSpecies = new HashMap<>();
+    private boolean rivalsChanged;
 
     /** Public GF header is preserved by the decomp; its expanded dex distinguishes it from retail. */
     static boolean hasExpandedEmeraldHeader(byte[] image) {
@@ -107,6 +114,10 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
             digest.update(image, start, image.length - start);
             if (!HexFormat.of().formatHex(digest.digest()).equals(FINGERPRINT)) return false;
             if (!ModernEmeraldTradeData.validRequestPatch(image)) return false;
+            for (var rival : ModernEmeraldRivalData.BINDINGS) {
+                if (!ModernEmeraldSpeciesCatalog.isEligible(ModernEmeraldStarterData.word(image, rival.speciesOffset()))) return false;
+                if (rival.customFlagOffset() != 0 && (image[rival.customFlagOffset()] & 255) > 1) return false;
+            }
             // Only the original LDR or our branch to the existing success epilogue is allowed here.
             if ((image[OUTBREAK_MOVES_PATCH] & 255) != 0x0B
                     || ((image[OUTBREAK_MOVES_PATCH + 1] & 255) != 0x4E
@@ -177,6 +188,9 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         wildRandomized = false;
         loadTrades();
         tradesChanged = false;
+        rivalSpecies.clear();
+        for (var rival : ModernEmeraldRivalData.BINDINGS) rivalSpecies.put(rival.speciesOffset(), readWord(rival.speciesOffset()));
+        rivalsChanged = false;
         trainers.clear();
         trainerClasses.clear();
     }
@@ -262,6 +276,41 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         return levelCoverageMasks.getOrDefault(table.offset(), 0);
     }
 
+    /** Pick an evolution branch once per starter and retain it across both genders and every battle. */
+    public void updateRivalStarters(Random random) {
+        List<NavigableMap<Integer, Integer>> lines = new ArrayList<>();
+        for (Species starter : modernStarters) {
+            NavigableMap<Integer, Integer> line = new TreeMap<>();
+            int current = getInternalId(starter), level = 1;
+            line.put(level, current);
+            Set<Integer> visited = new HashSet<>();
+            while (visited.add(current)) {
+                int from = current;
+                var choices = evolutionPolicy.links().stream().filter(e -> e.from() == from && e.method() != 14).toList();
+                if (choices.isEmpty()) break;
+                var next = choices.get(random.nextInt(choices.size()));
+                level = Math.max(next.estimatedLevel(), level + (next.requiresLevelUp() ? 1 : 0));
+                if (level > 100) break;
+                current = next.to();
+                line.put(level, current);
+            }
+            lines.add(line);
+        }
+        for (var rival : ModernEmeraldRivalData.BINDINGS) {
+            rivalSpecies.put(rival.speciesOffset(), lines.get(rival.starterIndex()).floorEntry(rom[rival.levelOffset()] & 255).getValue());
+        }
+        rivalsChanged = true;
+    }
+
+    public Map<String, String> getRivalStarterAssignments() {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (var rival : ModernEmeraldRivalData.BINDINGS) {
+            result.put(rival.name(), speciesByInternal.get(rivalSpecies.get(rival.speciesOffset())).getFullName()
+                    + " Lv." + (rom[rival.levelOffset()] & 255));
+        }
+        return result;
+    }
+
     private static Type modernType(int id) {
         return id == 18 ? Type.FAIRY : Gen3Constants.typeTable[id];
     }
@@ -319,6 +368,12 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         }
         if (startersChanged) ModernEmeraldStarterData.makeTypeExamplesGeneric(rom);
         saveTrades();
+        for (var rival : ModernEmeraldRivalData.BINDINGS) {
+            writeWord(rival.speciesOffset(), rivalSpecies.get(rival.speciesOffset()));
+            // All six opening parties contain exactly one Pokemon. Default moves read the same
+            // species/level fields and honor the game's current learnset/move mode.
+            if (rivalsChanged && rival.customFlagOffset() != 0) rom[rival.customFlagOffset()] = 0;
+        }
     }
 
     @Override public boolean saveRom(String filename, long seed, boolean directory) {

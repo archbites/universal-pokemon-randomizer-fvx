@@ -3955,6 +3955,9 @@ public class RandomizerGUI {
                 + "<br>Keep the game's built-in starter randomizer and one-type challenge OFF.</html>");
         spTypeNoneRadioButton.setEnabled(spRandomBasicRadioButton.isSelected());
         spTypeNoneRadioButton.setToolTipText("No type restrictions for Modern Emerald starters.");
+        tpRivalCarriesStarterCheckBox.setEnabled(spRandomBasicRadioButton.isSelected());
+        tpRivalCarriesStarterCheckBox.setToolTipText("Modern Emerald: Brendan/May keep the matching replacement starter"
+                + " through all five battles, evolving along one consistent legal branch. Wally has no shared starter.");
         spAllowAltFormesCheckBox.setSelected(true);
         spAllowAltFormesCheckBox.setToolTipText("Automatic form weighting, as for wild Pokemon; only basic choices are eligible.");
         igtUnchangedRadioButton.setEnabled(true);

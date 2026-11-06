@@ -1051,6 +1051,11 @@ public class RandomizationLogger {
 
     private void logTrainers(List<String> originalTrainerNames) {
         printSectionTitle("tp");
+        if (romHandler instanceof com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler modern) {
+            modern.getRivalStarterAssignments().forEach((battle, pokemon) -> log.println(battle + ": " + pokemon));
+            printSectionSeparator();
+            return;
+        }
         List<Trainer> trainers = romHandler.getTrainers();
         String[] battleStyleNames = getBS("Log.tp.battleStyleNames").split(",");
 

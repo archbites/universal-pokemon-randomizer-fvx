@@ -61,7 +61,7 @@ class ModernEmeraldStarterSupportTest {
             assertEquals(Settings.StartersTypeMod.NONE, safe.getStartersTypeMod());
             assertFalse(safe.isStartersNoLegendaries());
             assertFalse(safe.isRandomizeStartersHeldItems());
-            assertFalse(safe.isRivalCarriesStarterThroughout());
+            assertTrue(safe.isRivalCarriesStarterThroughout());
             new StarterRandomizer(handler, safe, new Random(seed)).randomizeStarters();
             Set<Integer> keys = new HashSet<>();
             for (Species starter : handler.getStarters()) {

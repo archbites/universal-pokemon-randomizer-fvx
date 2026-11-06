@@ -89,10 +89,11 @@ class ModernEmeraldGuiTest {
                     for (String name : List.of("spCustomRadioButton", "spRandomCompletelyRadioButton",
                             "spRandomTwoEvosRadioButton", "spTypeFwgRadioButton", "spTypeTriangleRadioButton",
                             "spTypeSingleRadioButton", "spTypeUniqueRadioButton", "spNoLegendariesCheckBox",
-                            "spRandomizeStarterHeldItemsCheckBox", "tpRivalCarriesStarterCheckBox")) {
+                            "spRandomizeStarterHeldItemsCheckBox")) {
                         assertFalse(((JComponent) field(gui, name)).isEnabled(), name);
                     }
                     Settings imported = new Settings();
+                    assertTrue(((JCheckBox) field(gui, "tpRivalCarriesStarterCheckBox")).isEnabled());
                     ((JRadioButton) field(gui, "igtRandomizeBothRequestedGivenRadioButton")).doClick();
                     for (String name : List.of("igtRandomizeNicknamesCheckBox", "igtRandomizeIVsCheckBox")) {
                         assertTrue(((JCheckBox) field(gui, name)).isEnabled(), name);
@@ -114,6 +115,7 @@ class ModernEmeraldGuiTest {
                     imported.setBanPrematureEvos(true);
                     imported.setRandomizeMovePPs(true);
                     imported.setStartersMod(Settings.StartersMod.RANDOM_BASIC);
+                    imported.setRivalCarriesStarterThroughout(true);
                     imported.setStartersTypeMod(Settings.StartersTypeMod.FIRE_WATER_GRASS);
                     invoke(gui, "restoreStateFromSettings", Settings.class, imported);
                     invoke(gui, "enableOrDisableSubControls");
@@ -134,6 +136,7 @@ class ModernEmeraldGuiTest {
                     assertTrue(exported.isBanPrematureEvos());
                     assertTrue(exported.isRandomizeMovePPs());
                     assertEquals(Settings.StartersMod.RANDOM_BASIC, exported.getStartersMod());
+                    assertTrue(exported.isRivalCarriesStarterThroughout());
                     assertEquals(Settings.StartersTypeMod.NONE, exported.getStartersTypeMod());
                     assertEquals(Settings.InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED, exported.getInGameTradesMod());
                     assertTrue(exported.isRandomizeInGameTradesNicknames());
