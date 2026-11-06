@@ -135,7 +135,7 @@ class ModernEmeraldWildSupportTest {
     }
 
     /** Independent of the adapter manifest: follow the binary headers and the native 3.6 mode selector. */
-    private void assertNativeRouteCoverage(byte[] image) {
+    static void assertNativeRouteCoverage(byte[] image) {
         for (int mode = 0; mode < 3; mode++) {
             Set<Integer> groups = new HashSet<>();
             Set<Integer> physical = new HashSet<>();

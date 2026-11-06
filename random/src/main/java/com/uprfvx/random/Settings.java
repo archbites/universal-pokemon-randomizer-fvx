@@ -59,6 +59,9 @@ public class Settings {
         safe.catchEmAllEncounters = catchEmAllEncounters;
         safe.blockWildLegendaries = false;
         safe.allowWildAltFormes = true; // The Modern Emerald catalog controls weighting and form eligibility.
+        safe.startersMod = startersMod == StartersMod.RANDOM_BASIC ? StartersMod.RANDOM_BASIC : StartersMod.UNCHANGED;
+        safe.startersTypeMod = StartersTypeMod.NONE;
+        safe.allowStarterAltFormes = true; // The same grouping policy applies after filtering by the ROM's evolution data.
         return safe;
     }
 

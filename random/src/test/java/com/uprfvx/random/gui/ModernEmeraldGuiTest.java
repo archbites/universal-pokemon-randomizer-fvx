@@ -48,7 +48,9 @@ class ModernEmeraldGuiTest {
                         if (!SwingUtilities.isDescendingFrom(component, tabs)) continue;
                         boolean allowed = f.getName().equals("mdRandomizeMoveAccuracyCheckBox")
                                 || f.getName().equals("mdRandomizeMovePPCheckBox")
-                                || f.getName().equals("wpRandomizeWildPokemonCheckBox");
+                                || f.getName().equals("wpRandomizeWildPokemonCheckBox")
+                                || f.getName().equals("spUnchangedRadioButton")
+                                || f.getName().equals("spRandomBasicRadioButton");
                         assertEquals(allowed, component.isEnabled(), f.getName());
                     }
                     for (String name : List.of("noRandomIntroMonCheckBox", "mdRandomizeMovePowerCheckBox",
@@ -67,10 +69,31 @@ class ModernEmeraldGuiTest {
                     assertTrue(((JCheckBox) field(gui, "wpCatchEmAllModeCheckBox")).isEnabled());
                     wild.doClick();
                     assertFalse(((JCheckBox) field(gui, "wpCatchEmAllModeCheckBox")).isEnabled());
+                    for (String name : List.of("spComboBox1", "spComboBox2", "spComboBox3")) {
+                        JComboBox<?> dropdown = (JComboBox<?>) field(gui, name);
+                        assertEquals(435, dropdown.getItemCount());
+                        assertFalse(dropdown.isEnabled()); // Custom starter selection is still TODO.
+                        assertEquals("Bulbasaur", dropdown.getItemAt(1));
+                        for (int i = 1; i < dropdown.getItemCount(); i++) {
+                            String text = dropdown.getItemAt(i).toString();
+                            assertTrue(text.matches("[\\p{IsLatin}0-9 .’'♀♂-]+"), text);
+                        }
+                    }
+                    ((JRadioButton) field(gui, "spRandomBasicRadioButton")).doClick();
+                    assertTrue(((JRadioButton) field(gui, "spTypeNoneRadioButton")).isEnabled());
+                    assertTrue(((JRadioButton) field(gui, "spTypeNoneRadioButton")).isSelected());
+                    for (String name : List.of("spCustomRadioButton", "spRandomCompletelyRadioButton",
+                            "spRandomTwoEvosRadioButton", "spTypeFwgRadioButton", "spTypeTriangleRadioButton",
+                            "spTypeSingleRadioButton", "spTypeUniqueRadioButton", "spNoLegendariesCheckBox",
+                            "spRandomizeStarterHeldItemsCheckBox", "tpRivalCarriesStarterCheckBox")) {
+                        assertFalse(((JComponent) field(gui, name)).isEnabled(), name);
+                    }
                     Settings imported = new Settings();
                     imported.setSelectedEXPCurve(ExpCurve.MEDIUM_FAST);
                     imported.setRandomizeWildPokemon(true);
                     imported.setRandomizeMovePPs(true);
+                    imported.setStartersMod(Settings.StartersMod.RANDOM_BASIC);
+                    imported.setStartersTypeMod(Settings.StartersTypeMod.FIRE_WATER_GRASS);
                     invoke(gui, "restoreStateFromSettings", Settings.class, imported);
                     invoke(gui, "enableOrDisableSubControls");
                     assertTrue(((JCheckBox) field(gui, "wpRandomizeWildPokemonCheckBox")).isSelected());
@@ -88,6 +111,16 @@ class ModernEmeraldGuiTest {
                     assertFalse(exported.isRandomizeIntroMon());
                     assertTrue(exported.isRandomizeWildPokemon());
                     assertTrue(exported.isRandomizeMovePPs());
+                    assertEquals(Settings.StartersMod.RANDOM_BASIC, exported.getStartersMod());
+                    assertEquals(Settings.StartersTypeMod.NONE, exported.getStartersTypeMod());
+                    modern.setStarters(List.of(modern.getSpeciesForInternalId(417),
+                            modern.getSpeciesForInternalId(454), modern.getSpeciesForInternalId(459)));
+                    invoke(gui, "populateDropdowns");
+                    assertEquals("Deoxys-Attack", ((JComboBox<?>) field(gui, "spComboBox1")).getSelectedItem());
+                    assertEquals("Ursaluna-Bloodmoon", ((JComboBox<?>) field(gui, "spComboBox2")).getSelectedItem());
+                    assertEquals("Articuno-Galarian", ((JComboBox<?>) field(gui, "spComboBox3")).getSelectedItem());
+                    modern.setStarters(List.of(modern.getSpeciesForInternalId(277),
+                            modern.getSpeciesForInternalId(280), modern.getSpeciesForInternalId(283)));
                     load(gui, retail);
                     Map<String, String> restored = snapshot(gui);
                     baseline.forEach((name, state) -> assertEquals(state, restored.get(name), name));

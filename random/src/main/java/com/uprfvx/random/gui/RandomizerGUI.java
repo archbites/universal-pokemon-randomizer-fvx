@@ -3889,6 +3889,7 @@ public class RandomizerGUI {
             wpERNoneRadioButton.setSelected(true);
             wpCatchEmAllModeCheckBox.setSelected(true);
             wpDontUseLegendariesCheckBox.setSelected(false);
+            spTypeNoneRadioButton.setSelected(true);
         }
         for (int i = 0; i < tabbedPane1.getTabCount(); i++) {
             tabbedPane1.setEnabledAt(i, true); // TODO tabs remain browsable.
@@ -3939,6 +3940,16 @@ public class RandomizerGUI {
         wpAllowAltFormesCheckBox.setToolTipText("Automatic: Deoxys forms share one chance; Galarian birds and "
                 + "Bloodmoon Ursaluna have separate chances. Unown letters use the game's personality system.");
         wpAllowAltFormesCheckBox.setSelected(true);
+        spUnchangedRadioButton.setEnabled(true);
+        spRandomBasicRadioButton.setEnabled(true);
+        spUnchangedRadioButton.setToolTipText("Keep the loaded Modern Emerald starter choices.");
+        spRandomBasicRadioButton.setToolTipText("<html>Three different basic choices, using Modern Emerald's evolution data."
+                + "<br>All basic Pokemon remain eligible, including legendaries and Pokemon without an attack at level 5."
+                + "<br>Keep the game's built-in starter randomizer and one-type challenge OFF.</html>");
+        spTypeNoneRadioButton.setEnabled(spRandomBasicRadioButton.isSelected());
+        spTypeNoneRadioButton.setToolTipText("No type restrictions for Modern Emerald starters.");
+        spAllowAltFormesCheckBox.setSelected(true);
+        spAllowAltFormesCheckBox.setToolTipText("Automatic form weighting, as for wild Pokemon; only basic choices are eligible.");
         cpgSelection.setEnabled(false);
         cpgSelection.setVisible(true);
     }
@@ -4012,7 +4023,7 @@ public class RandomizerGUI {
     private void populateDropdowns() {
         List<Species> currentStarters = romHandler.getStarters();
         List<Species> allPokes =
-                romHandler.generationOfPokemon() >= 6 ?
+                romHandler.generationOfPokemon() >= 6 || romHandler instanceof ModernEmeraldRomHandler ?
                         romHandler.getSpeciesInclFormes()
                                 .stream()
                                 .filter(pk -> pk == null || !pk.isEssentiallyCosmetic())

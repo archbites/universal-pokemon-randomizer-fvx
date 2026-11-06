@@ -4,6 +4,7 @@ import com.uprfvx.random.Settings;
 import com.uprfvx.random.exceptions.RandomizationException;
 import com.uprfvx.romio.gamedata.*;
 import com.uprfvx.romio.romhandlers.RomHandler;
+import com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler;
 
 import java.util.*;
 
@@ -14,6 +15,20 @@ public class StarterRandomizer extends Randomizer {
     }
 
     public void randomizeStarters() {
+        if (romHandler instanceof ModernEmeraldRomHandler modern) {
+            if (settings.getStartersMod() != Settings.StartersMod.RANDOM_BASIC) {
+                throw new UnsupportedOperationException("Modern Emerald supports only random basic starters");
+            }
+            List<List<Species>> groups = new ArrayList<>(modern.getBasicStarterSelectionGroups());
+            List<Species> starters = new ArrayList<>();
+            for (int slot = 0; slot < 3; slot++) {
+                List<Species> forms = groups.remove(random.nextInt(groups.size()));
+                starters.add(forms.get(random.nextInt(forms.size())));
+            }
+            modern.setStarters(starters);
+            changesMade = true;
+            return;
+        }
         boolean useCustomStarters = settings.getStartersMod() == Settings.StartersMod.CUSTOM;
         boolean typeFwg = settings.getStartersTypeMod() == Settings.StartersTypeMod.FIRE_WATER_GRASS;
         boolean typeUnique = settings.getStartersTypeMod() == Settings.StartersTypeMod.UNIQUE;

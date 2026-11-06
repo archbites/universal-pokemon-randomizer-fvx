@@ -14,7 +14,7 @@ import java.util.*;
 /**
  * Deliberately narrow support for the supplied Modern Emerald 3.6 release.
  * Never runs Gen3's map preprocessing, free-space reclamation, or unconditional vanilla writers.
- * Only verified move fields and wild species slots are writable. Offsets come from the matching 3.6 symbols.
+ * Only verified move fields, wild slots, and basic starters are writable. Offsets come from matching 3.6 symbols.
  */
 public class ModernEmeraldRomHandler extends Gen3RomHandler {
     public static final int MOVE_DATA = 0x8E0898;
@@ -25,7 +25,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private static final int SPECIES_INFO = 0x8E5960;
     public static final int OUTBREAK_MOVES_PATCH = 0x21CA78;
     private static final String FINGERPRINT =
-            "ccacc6c40623236578ea76689ce6daa3e9389f8fb4762b28184e547e4a2cb671";
+            "d9d764175bae2d90aff9d20ddd4f561c9955951ac3633f6b025f189c915028e4";
     private static final int[] WRITABLE_OFFSETS = buildWritableOffsets();
 
     private static int[] buildWritableOffsets() {
@@ -43,6 +43,10 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         }
         offsets.add(OUTBREAK_MOVES_PATCH);
         offsets.add(OUTBREAK_MOVES_PATCH + 1);
+        for (int i = 0; i < 6; i++) offsets.add(ModernEmeraldStarterData.STARTERS + i);
+        for (var text : ModernEmeraldStarterData.TYPE_EXAMPLES) {
+            for (int i = 13; i < text.length(); i++) offsets.add(text.offset() + i);
+        }
         return offsets.stream().mapToInt(Integer::intValue).toArray();
     }
 
@@ -64,6 +68,9 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private List<EncounterArea> modernEncounters;
     private boolean wildRandomized;
     private List<Move> modernMoves;
+    private List<Species> modernStarters;
+    private boolean startersChanged;
+    private Set<Integer> evolvedSpecies;
 
     /** Public GF header is preserved by the decomp; its expanded dex distinguishes it from retail. */
     static boolean hasExpandedEmeraldHeader(byte[] image) {
@@ -96,6 +103,13 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
                     if (!ModernEmeraldSpeciesCatalog.isEligible(internal)) return false;
                 }
             }
+            Set<Integer> evolved = ModernEmeraldStarterData.evolvedSpecies(image);
+            Set<Integer> choices = new HashSet<>();
+            for (int slot = 0; slot < 3; slot++) {
+                int internal = ModernEmeraldStarterData.word(image, ModernEmeraldStarterData.STARTERS + slot * 2);
+                if (!ModernEmeraldSpeciesCatalog.isEligible(internal) || evolved.contains(internal)
+                        || !choices.add(ModernEmeraldSpeciesCatalog.selectionKey(internal))) return false;
+            }
             return true;
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
@@ -123,6 +137,11 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     @Override protected void loadGameData() {
         loadSpeciesStats();
         loadMoves();
+        evolvedSpecies = ModernEmeraldStarterData.evolvedSpecies(rom);
+        modernStarters = new ArrayList<>();
+        for (int slot = 0; slot < 3; slot++) modernStarters.add(speciesByInternal.get(
+                readWord(ModernEmeraldStarterData.STARTERS + slot * 2)));
+        startersChanged = false;
         modernEncounters = ModernEmeraldEncounterData.read(rom, speciesByInternal::get);
         wildRandomized = false;
         trainers.clear();
@@ -198,6 +217,12 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
                 .map(group -> group.stream().map(speciesByInternal::get).toList()).toList();
     }
 
+    public List<List<Species>> getBasicStarterSelectionGroups() {
+        return getWildSelectionGroups().stream()
+                .map(group -> group.stream().filter(mon -> !evolvedSpecies.contains(getInternalId(mon))).toList())
+                .filter(group -> !group.isEmpty()).toList();
+    }
+
     private static Type modernType(int id) {
         return id == 18 ? Type.FAIRY : Gen3Constants.typeTable[id];
     }
@@ -250,6 +275,10 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
             rom[OUTBREAK_MOVES_PATCH] = 0x0B;
             rom[OUTBREAK_MOVES_PATCH + 1] = (byte) 0xE0;
         }
+        for (int slot = 0; slot < 3; slot++) {
+            writeWord(ModernEmeraldStarterData.STARTERS + slot * 2, getInternalId(modernStarters.get(slot)));
+        }
+        if (startersChanged) ModernEmeraldStarterData.makeTypeExamplesGeneric(rom);
     }
 
     @Override public boolean saveRom(String filename, long seed, boolean directory) {
@@ -268,7 +297,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         return valid;
     }
 
-    @Override public String getSupportLevel() { return "Partial (wild Pokemon, move accuracy and PP; grey options are TODO)"; }
+    @Override public String getSupportLevel() { return "Partial (basic starters, wild Pokemon, move accuracy and PP; grey options are TODO)"; }
     @Override public List<Species> getSpecies() { return Collections.unmodifiableList(species); }
     @Override public List<Species> getSpeciesInclFormes() { return Collections.unmodifiableList(speciesWithFormes); }
     @Override public SpeciesSet getAltFormes() {
@@ -276,8 +305,23 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     }
     @Override public List<Move> getMoves() { return Collections.unmodifiableList(modernMoves); }
     @Override public List<Species> getStarters() {
-        return List.of(speciesByInternal.get(277), speciesByInternal.get(280), speciesByInternal.get(283));
+        return List.copyOf(modernStarters);
     }
+    @Override public boolean setStarters(List<Species> starters) {
+        if (starters.size() != 3) throw new IllegalArgumentException("Exactly three starters are required");
+        Set<Integer> choices = new HashSet<>();
+        for (Species starter : starters) {
+            int internal = getInternalId(starter);
+            if (evolvedSpecies.contains(internal)
+                    || !choices.add(ModernEmeraldSpeciesCatalog.selectionKey(internal))) {
+                throw new IllegalArgumentException("Starters must be three different basic choices");
+            }
+        }
+        modernStarters = List.copyOf(starters);
+        startersChanged = true;
+        return true;
+    }
+    @Override public List<Item> getStarterHeldItems() { return List.of(); }
     @Override public List<Item> getItems() { return List.of(); }
     @Override public List<EncounterArea> getEncounters(boolean time) { return ModernEmeraldEncounterData.copy(modernEncounters); }
     @Override public List<EncounterArea> getSortedEncounters(boolean time) { return getEncounters(time); }
