@@ -4,6 +4,7 @@ import com.uprfvx.random.Settings;
 import com.uprfvx.random.exceptions.RandomizationException;
 import com.uprfvx.romio.gamedata.*;
 import com.uprfvx.romio.romhandlers.RomHandler;
+import com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler;
 
 import java.util.*;
 
@@ -14,6 +15,13 @@ public class WildEncounterRandomizer extends Randomizer {
     }
 
     public void randomizeEncounters() {
+        if (romHandler instanceof ModernEmeraldRomHandler modern) {
+            if (settings.isRandomizeWildPokemon()) {
+                ModernEmeraldWildRandomizer.randomize(modern, settings.isCatchEmAllEncounters(), random);
+                changesMade = true;
+            }
+            return;
+        }
         boolean useTimeOfDay = settings.isUseTimeBasedEncounters();
         int levelModifier = settings.isWildLevelsModified() ? settings.getWildLevelModifier() : 0;
 

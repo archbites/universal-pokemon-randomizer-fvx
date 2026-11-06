@@ -61,6 +61,9 @@ import java.util.List;
  */
 public class RandomizerGUI {
     private JTabbedPane tabbedPane1;
+    private record ModernControlState(boolean enabled, boolean visible, String toolTip) {}
+    private final Map<JComponent, ModernControlState> modernControlStates = new IdentityHashMap<>();
+    private boolean[] modernTabStates;
     private JCheckBox raceModeCheckBox;
     private JButton openROMButton;
     private JButton randomizeSaveButton;
@@ -443,6 +446,11 @@ public class RandomizerGUI {
     private BatchRandomizationSettings batchRandomizationSettings;
 
     public RandomizerGUI() {
+        this(true);
+    }
+
+    /** Builds the actual Swing UI without config writes, prompts, or update checks in compatibility tests. */
+    RandomizerGUI(boolean startupTasks) {
         ToolTipManager.sharedInstance().setInitialDelay(400);
         ToolTipManager.sharedInstance().setDismissDelay(Integer.MAX_VALUE);
         bundle = ResourceBundle.getBundle("com/uprfvx/random/gui/Bundle");
@@ -453,56 +461,62 @@ public class RandomizerGUI {
         romOpener.setExtraMemoryAvailable(usedLauncher);
 
         haveCheckedCustomNames = false;
-        attemptReadConfig();
+        if (startupTasks) attemptReadConfig();
+        else {
+            unloadGameOnSuccess = true;
+            batchRandomizationSettings = new BatchRandomizationSettings();
+        }
         initExplicit();
         initTweaksPanel();
         initFileChooserDirectories();
 
-        boolean canWrite = attemptWriteConfig();
-        if (!canWrite) {
-            JOptionPane.showMessageDialog(null, bundle.getString("GUI.cantWriteConfigFile"));
-        }
+        if (startupTasks) {
+            boolean canWrite = attemptWriteConfig();
+            if (!canWrite) {
+                JOptionPane.showMessageDialog(null, bundle.getString("GUI.cantWriteConfigFile"));
+            }
 
-        if (!haveCheckedCustomNames) {
-            checkCustomNames();
-        }
+            if (!haveCheckedCustomNames) {
+                checkCustomNames();
+            }
 
-        new Thread(() -> {
-            String latestVersionString = "???";
+            new Thread(() -> {
+                String latestVersionString = "???";
 
-            try {
+                try {
 
-                URL url = new URI(SysConstants.RELEASES_API_URL).toURL();
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/json");
-                conn.setConnectTimeout(2000);
-                conn.setReadTimeout(2000);
+                    URL url = new URI(SysConstants.RELEASES_API_URL).toURL();
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setRequestProperty("Accept", "application/json");
+                    conn.setConnectTimeout(2000);
+                    conn.setReadTimeout(2000);
 
-                BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+                    BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 
-                String output;
-                while ((output = br.readLine()) != null) {
-                    String[] a = output.split("tag_name\":\"");
-                    if (a.length > 1) {
-                        latestVersionString = a[1].split("\",")[0];
+                    String output;
+                    while ((output = br.readLine()) != null) {
+                        String[] a = output.split("tag_name\":\"");
+                        if (a.length > 1) {
+                            latestVersionString = a[1].split("\",")[0];
+                        }
                     }
+
+                    conn.disconnect();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
 
-                conn.disconnect();
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            // If the release version is newer than this version, bold it to make it more obvious.
-            if (Version.isReleaseVersionNewer(latestVersionString)) {
-                latestVersionString = String.format("<b>%s</b>", latestVersionString);
-            }
-            String finalLatestVersionString = latestVersionString;
-            SwingUtilities.invokeLater(() -> websiteLinkLabel.setText(
-                    String.format(bundle.getString("GUI.websiteLinkLabel.text"), finalLatestVersionString)));
-        }).run();
+                // If the release version is newer than this version, bold it to make it more obvious.
+                if (Version.isReleaseVersionNewer(latestVersionString)) {
+                    latestVersionString = String.format("<b>%s</b>", latestVersionString);
+                }
+                String finalLatestVersionString = latestVersionString;
+                SwingUtilities.invokeLater(() -> websiteLinkLabel.setText(
+                        String.format(bundle.getString("GUI.websiteLinkLabel.text"), finalLatestVersionString)));
+            }).run();
+        }
 
         frame.setTitle(String.format(bundle.getString("GUI.windowTitle"),Version.LATEST.name));
 
@@ -1698,6 +1712,7 @@ public class RandomizerGUI {
     }
 
     private void restoreStateFromSettings(Settings settings) {
+        if (romHandler instanceof ModernEmeraldRomHandler) settings = settings.forModernEmerald();
 
         limitPokemonCheckBox.setSelected(settings.isLimitPokemon());
         currentRestrictions = settings.getCurrentRestrictions();
@@ -2284,7 +2299,8 @@ public class RandomizerGUI {
     }
 
     private Settings getCurrentSettings() {
-        return createSettingsFromState();
+        Settings settings = createSettingsFromState();
+        return romHandler instanceof ModernEmeraldRomHandler ? settings.forModernEmerald() : settings;
     }
 
     private void attemptToLogException(Exception ex, String baseMessageKey, String noLogMessageKey,
@@ -2349,6 +2365,7 @@ public class RandomizerGUI {
     }
 
     private void initialState() {
+        restoreModernEmeraldControls();
 
         romNameLabel.setText(bundle.getString("GUI.noRomLoaded"));
         romCodeLabel.setText("");
@@ -3157,6 +3174,9 @@ public class RandomizerGUI {
 
             gameMascotLabel.setIcon(makeMascotIcon());
 
+            enableOrDisableSubControls();
+            if (romHandler instanceof ModernEmeraldRomHandler) configureModernEmeraldControls();
+
             if (romHandler.getResourceLifetime() == RomHandler.ResourceLifetime.LOAD_ONLY) {
                 romHandler.closeResources();
             }
@@ -3202,6 +3222,10 @@ public class RandomizerGUI {
     }
 
     private void enableOrDisableSubControls() {
+        if (romHandler instanceof ModernEmeraldRomHandler) {
+            if (!modernControlStates.isEmpty()) configureModernEmeraldControls();
+            return;
+        }
         //TODO: split this into smaller listeners for each tab or so
 
         if(romHandler == null) {
@@ -3827,6 +3851,109 @@ public class RandomizerGUI {
 
         cpgSelection.setEnabled(cpgCustomRadioButton.isSelected() && cpgCustomRadioButton.isVisible()
                 && cpgCustomRadioButton.isEnabled());
+    }
+
+    private void rememberModernControls(Component component) {
+        if (component instanceof JComponent control) {
+            modernControlStates.putIfAbsent(control, new ModernControlState(
+                    control.isEnabled(), control.isVisible(), control.getToolTipText()));
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) rememberModernControls(child);
+        }
+    }
+
+    private void disableModernControls(Component component, String reason) {
+        if (component instanceof AbstractButton || component instanceof JComboBox<?>
+                || component instanceof JSlider || component instanceof JSpinner) {
+            component.setEnabled(false);
+            ((JComponent) component).setToolTipText(reason);
+            return;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) disableModernControls(child, reason);
+        }
+    }
+
+    private void configureModernEmeraldControls() {
+        if (modernControlStates.isEmpty()) {
+            rememberModernControls(tabbedPane1);
+            tweakCheckBoxes.forEach(this::rememberModernControls);
+            for (JComponent control : List.of(limitPokemonCheckBox, limitPokemonButton,
+                    noIrregularAltFormesCheckBox, noPrematureEvosCheckbox, raceModeCheckBox,
+                    noRandomIntroMonCheckBox)) rememberModernControls(control);
+            modernTabStates = new boolean[tabbedPane1.getTabCount()];
+            for (int i = 0; i < modernTabStates.length; i++) modernTabStates[i] = tabbedPane1.isEnabledAt(i);
+            wpZoneNoneRadioButton.setSelected(true);
+            wpTRNoneRadioButton.setSelected(true);
+            wpERNoneRadioButton.setSelected(true);
+            wpCatchEmAllModeCheckBox.setSelected(true);
+            wpDontUseLegendariesCheckBox.setSelected(false);
+        }
+        for (int i = 0; i < tabbedPane1.getTabCount(); i++) {
+            tabbedPane1.setEnabledAt(i, true); // TODO tabs remain browsable.
+            disableModernControls(tabbedPane1.getComponentAt(i),
+                    "Modern Emerald TODO: " + tabbedPane1.getTitleAt(i)
+                            + " has not been verified for this ROM; see the Modern Emerald support checklist.");
+        }
+        for (JComponent control : List.of(limitPokemonCheckBox, limitPokemonButton,
+                noIrregularAltFormesCheckBox, noPrematureEvosCheckbox, raceModeCheckBox,
+                noRandomIntroMonCheckBox)) {
+            control.setEnabled(false);
+            control.setToolTipText("Modern Emerald TODO: this option has not been verified for this release.");
+        }
+        // Keep features hidden by the generic capability UI visible as the initial TODO list.
+        for (JComponent control : List.of(noRandomIntroMonCheckBox, shopItemsPanel,
+                shAddRareCandyCheckBox, ppalUnchangedRadioButton, ppalRandomRadioButton,
+                ppalFollowTypesCheckBox, ppalFollowEvolutionsCheckBox, ppalShinyFromNormalCheckBox,
+                cpgUnchangedRadioButton, cpgCustomRadioButton,
+                moveTutorPanel, mtMovesPanel, mtCompatPanel,
+                mtUnchangedRadioButton, mtRandomRadioButton, mtcUnchangedRadioButton,
+                mtcRandomPreferSameTypeRadioButton, mtcRandomCompletelyRadioButton,
+                mtcFullCompatibilityRadioButton)) control.setVisible(true);
+        ppalNotExistLabel.setVisible(false);
+        cpgNotExistLabel.setVisible(false);
+        mtNoExistLabel.setVisible(false);
+        setTweaksPanel(tweakCheckBoxes);
+        for (JCheckBox tweak : tweakCheckBoxes) {
+            tweak.setVisible(true);
+            tweak.setEnabled(false);
+            tweak.setToolTipText("Modern Emerald TODO: this code tweak has not been ported or verified.");
+        }
+        mdRandomizeMoveAccuracyCheckBox.setEnabled(true);
+        mdRandomizeMovePPCheckBox.setEnabled(true);
+        mdRandomizeMoveAccuracyCheckBox.setToolTipText("Verified Modern Emerald 3.6 move accuracy table.");
+        mdRandomizeMovePPCheckBox.setToolTipText("Verified Modern Emerald 3.6 move PP table.");
+        noRandomIntroMonCheckBox.setSelected(true);
+        wpRandomizeWildPokemonCheckBox.setEnabled(true);
+        wpRandomizeWildPokemonCheckBox.setToolTipText("<html>Randomize Modern Emerald's wild encounters, including "
+                + "Feebas.<br>Keep the game's built-in wild randomizer OFF so these encounters and "
+                + "Catch Em All coverage are preserved.</html>");
+        for (JComponent control : List.of(wpZoneNoneRadioButton, wpTRNoneRadioButton,
+                wpERNoneRadioButton, wpCatchEmAllModeCheckBox)) {
+            control.setEnabled(wpRandomizeWildPokemonCheckBox.isSelected());
+            control.setToolTipText("Verified Modern Emerald: maximum replacements, no type/stage restrictions. "
+                    + "Catch Em All covers each group on Hoenn routes in original/day/night modes. "
+                    + "Form weighting is automatic; all legendaries are included.");
+        }
+        wpAllowAltFormesCheckBox.setToolTipText("Automatic: Deoxys forms share one chance; Galarian birds and "
+                + "Bloodmoon Ursaluna have separate chances. Unown letters use the game's personality system.");
+        wpAllowAltFormesCheckBox.setSelected(true);
+        cpgSelection.setEnabled(false);
+        cpgSelection.setVisible(true);
+    }
+
+    private void restoreModernEmeraldControls() {
+        modernControlStates.forEach((control, state) -> {
+            control.setEnabled(state.enabled());
+            control.setVisible(state.visible());
+            if (!Objects.equals(control.getToolTipText(), state.toolTip())) control.setToolTipText(state.toolTip());
+        });
+        if (modernTabStates != null) {
+            for (int i = 0; i < modernTabStates.length; i++) tabbedPane1.setEnabledAt(i, modernTabStates[i]);
+        }
+        modernControlStates.clear();
+        modernTabStates = null;
     }
 
     private void initTweaksPanel() {

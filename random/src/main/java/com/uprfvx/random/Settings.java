@@ -45,6 +45,23 @@ public class Settings {
 
     public static final int VERSION = Version.LATEST.id;
 
+    /** Whitelist for the Modern Emerald foundation. New settings remain off unless verified here. */
+    public Settings forModernEmerald() {
+        Settings safe = new Settings();
+        safe.romName = romName;
+        safe.randomizeMoveAccuracies = randomizeMoveAccuracies;
+        safe.randomizeMovePPs = randomizeMovePPs;
+        safe.selectedEXPCurve = ExpCurve.MEDIUM_FAST;
+        safe.randomizeWildPokemon = randomizeWildPokemon;
+        safe.wildPokemonZoneMod = WildPokemonZoneMod.NONE;
+        safe.wildPokemonTypeMod = WildPokemonTypeMod.NONE;
+        safe.wildPokemonEvolutionMod = WildPokemonEvolutionMod.NONE;
+        safe.catchEmAllEncounters = catchEmAllEncounters;
+        safe.blockWildLegendaries = false;
+        safe.allowWildAltFormes = true; // The Modern Emerald catalog controls weighting and form eligibility.
+        return safe;
+    }
+
     public static final int LENGTH_OF_SETTINGS_DATA = 69;
     public static final int LENGTH_OF_NAME_LENGTH = 1;
     public static final int LENGTH_OF_CHECKSUM = 4;
@@ -1154,6 +1171,10 @@ public class Settings {
     public TweakForROMFeedback tweakForRom(RomHandler rh) {
 
         TweakForROMFeedback feedback = new TweakForROMFeedback();
+
+        // The UI and GameRandomizer use forModernEmerald() at their boundaries. Avoid retail-only
+        // assumptions here (including generation restrictions and custom starter indices in old presets).
+        if (rh instanceof ModernEmeraldRomHandler) return feedback;
 
         if (!rh.canSetIntroPokemon()) {
             this.setRandomizeIntroMon(false);

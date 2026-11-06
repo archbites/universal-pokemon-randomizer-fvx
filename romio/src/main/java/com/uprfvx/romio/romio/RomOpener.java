@@ -107,6 +107,10 @@ public class RomOpener {
 
         for (int gen : allowedGenerations) {
             RomHandler.Factory rhf = FACTORIES[gen - 1];
+            if (gen == 3) {
+                RomHandler.Factory modern = new ModernEmeraldRomHandler.Factory();
+                if (modern.isLoadable(romFile.getAbsolutePath())) rhf = modern;
+            }
             if (rhf.isLoadable(romFile.getAbsolutePath())) {
                 romHandler = rhf.create();
 

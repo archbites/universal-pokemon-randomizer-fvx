@@ -112,7 +112,7 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
     }
 
     // This ROM's data
-    private Gen3RomEntry romEntry;
+    protected Gen3RomEntry romEntry;
     private Species[] pokes, pokesInternal;
     private List<Species> speciesList;
     private int numRealPokemon;
@@ -141,6 +141,10 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
     }
 
     private static boolean detectRomInner(byte[] rom, int romSize) {
+        // Expanded Emerald layouts must never fall through to vanilla Emerald's offsets.
+        if (ModernEmeraldRomHandler.hasExpandedEmeraldHeader(rom)) {
+            return false;
+        }
         if (romSize != Gen3Constants.size8M && romSize != Gen3Constants.size16M && romSize != Gen3Constants.size32M) {
             return false; // size check
         }
@@ -1203,7 +1207,7 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
         return baos.toByteArray();
     }
 
-    private String readFixedLengthString(int offset, int length) {
+    protected String readFixedLengthString(int offset, int length) {
         return readString(offset, length);
     }
 

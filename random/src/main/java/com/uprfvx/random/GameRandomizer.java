@@ -33,6 +33,7 @@ import com.uprfvx.random.updaters.Updater;
 import com.uprfvx.romio.MiscTweak;
 import com.uprfvx.romio.graphics.packs.CustomPlayerGraphics;
 import com.uprfvx.romio.romhandlers.Gen1RomHandler;
+import com.uprfvx.romio.romhandlers.ModernEmeraldRomHandler;
 import com.uprfvx.romio.romhandlers.RomHandler;
 
 import java.io.IOException;
@@ -123,6 +124,10 @@ public class GameRandomizer {
 
     public GameRandomizer(Settings settings, CustomPlayerGraphics customPlayerGraphics, RomHandler romHandler,
                           ResourceBundle bundle, boolean saveAsDirectory) {
+        if (romHandler instanceof ModernEmeraldRomHandler) {
+            settings = settings.forModernEmerald();
+            customPlayerGraphics = null;
+        }
         this.settings = settings;
         this.customPlayerGraphics = customPlayerGraphics;
         this.romHandler = romHandler;
