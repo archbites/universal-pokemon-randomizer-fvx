@@ -17,6 +17,39 @@ public final class ModernEmeraldEncounterData {
     }
     public static final List<Table> TABLES = loadTables();
 
+    /** Normal original/day/night headers, including late-game caves. Excludes single-header special
+     * maps and Altering Cave's nine independently selected sets from coverage promises. */
+    public static Map<Integer, Integer> levelCoverageMasks(byte[] image) {
+        Map<Integer, Integer> masks = new HashMap<>();
+        Set<Integer> known = new HashSet<>();
+        TABLES.stream().filter(t -> !t.outbreak()).forEach(t -> known.add(t.offset()));
+        for (int header = 0xBDD84C; (image[header] & 255) != 255;) {
+            int end = header + 20;
+            while (image[end] == image[header] && image[end + 1] == image[header + 1]) end += 20;
+            int count = (end - header) / 20;
+            if (count == 2 || count == 3) {
+                for (int mode = 0; mode < 3; mode++) {
+                    int selected = header + Math.min(mode, count - 1) * 20;
+                    for (int type = 0; type < 4; type++) {
+                        int pointer = word32(image, selected + 4 + type * 4);
+                        if (pointer == 0) continue;
+                        int info = pointer - 0x08000000;
+                        if (image[info] == 0) continue;
+                        int data = word32(image, info + 4) - 0x08000000;
+                        if (known.contains(data)) masks.merge(data, 1 << mode, (a, b) -> a | b);
+                    }
+                }
+            }
+            header = end;
+        }
+        return Map.copyOf(masks);
+    }
+
+    private static int word32(byte[] image, int offset) {
+        return (image[offset] & 255) | ((image[offset + 1] & 255) << 8)
+                | ((image[offset + 2] & 255) << 16) | ((image[offset + 3] & 255) << 24);
+    }
+
     private static List<Table> loadTables() {
         var types = List.of(EncounterType.WALKING, EncounterType.SURFING, EncounterType.INTERACT,
                 EncounterType.FISHING, EncounterType.SPECIAL, EncounterType.SPECIAL);

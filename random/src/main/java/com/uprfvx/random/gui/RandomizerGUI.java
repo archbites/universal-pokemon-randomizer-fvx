@@ -3922,6 +3922,11 @@ public class RandomizerGUI {
             tweak.setToolTipText("Modern Emerald TODO: this code tweak has not been ported or verified.");
         }
         mdRandomizeMoveAccuracyCheckBox.setEnabled(true);
+        noPrematureEvosCheckbox.setEnabled(true);
+        noPrematureEvosCheckbox.setToolTipText("<html>Modern Emerald wild replacements obey actual evolution levels and"
+                + " estimated levels for item/trade/friendship/move evolutions.<br>Pokemon with no incoming evolution"
+                + " path remain eligible at any level. NPC trades are exempt.<br>With Catch Em All, high-level"
+                + " evolutions may require late-game or postgame areas. Native game settings remain authoritative.</html>");
         mdRandomizeMovePPCheckBox.setEnabled(true);
         mdRandomizeMoveAccuracyCheckBox.setToolTipText("Verified Modern Emerald 3.6 move accuracy table.");
         mdRandomizeMovePPCheckBox.setToolTipText("Verified Modern Emerald 3.6 move PP table.");
@@ -3933,8 +3938,10 @@ public class RandomizerGUI {
         for (JComponent control : List.of(wpZoneNoneRadioButton, wpTRNoneRadioButton,
                 wpERNoneRadioButton, wpCatchEmAllModeCheckBox)) {
             control.setEnabled(wpRandomizeWildPokemonCheckBox.isSelected());
-            control.setToolTipText("Verified Modern Emerald: maximum replacements, no type/stage restrictions. "
-                    + "Catch Em All covers each group on Hoenn routes in original/day/night modes. "
+            control.setToolTipText("Verified Modern Emerald: maximum replacements, no type or evolution-stage matching. "
+                    + (noPrematureEvosCheckbox.isSelected()
+                    ? "Catch Em All covers each group at legal levels across original/day/night areas, including postgame. "
+                    : "Catch Em All covers each group on Hoenn routes in original/day/night modes. ")
                     + "Form weighting is automatic; all legendaries are included.");
         }
         wpAllowAltFormesCheckBox.setToolTipText("Automatic: Deoxys forms share one chance; Galarian birds and "

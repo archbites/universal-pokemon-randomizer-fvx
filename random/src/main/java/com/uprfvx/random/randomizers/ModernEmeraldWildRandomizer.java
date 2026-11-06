@@ -10,7 +10,11 @@ import java.util.*;
 final class ModernEmeraldWildRandomizer {
     private ModernEmeraldWildRandomizer() {}
 
-    static void randomize(ModernEmeraldRomHandler handler, boolean catchEmAll, Random random) {
+    static void randomize(ModernEmeraldRomHandler handler, boolean catchEmAll, boolean noPremature, Random random) {
+        if (noPremature) {
+            ModernEmeraldLevelAwareWildRandomizer.randomize(handler, catchEmAll, random);
+            return;
+        }
         List<EncounterArea> areas = handler.getEncounters(false);
         List<List<Species>> groups = handler.getWildSelectionGroups();
         Map<Integer, List<Encounter>> slotsByMask = new TreeMap<>(Comparator

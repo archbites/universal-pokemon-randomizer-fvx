@@ -62,6 +62,7 @@ public class Settings {
         safe.startersMod = startersMod == StartersMod.RANDOM_BASIC ? StartersMod.RANDOM_BASIC : StartersMod.UNCHANGED;
         safe.startersTypeMod = StartersTypeMod.NONE;
         safe.allowStarterAltFormes = true; // The same grouping policy applies after filtering by the ROM's evolution data.
+        safe.banPrematureEvos = banPrematureEvos;
         safe.inGameTradesMod = inGameTradesMod == InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED
                 ? InGameTradesMod.RANDOMIZE_GIVEN_AND_REQUESTED : InGameTradesMod.UNCHANGED;
         if (safe.inGameTradesMod != InGameTradesMod.UNCHANGED) {

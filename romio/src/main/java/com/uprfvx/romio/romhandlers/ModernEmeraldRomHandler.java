@@ -81,6 +81,8 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
     private List<Species> modernStarters;
     private boolean startersChanged;
     private Set<Integer> evolvedSpecies;
+    private ModernEmeraldEvolutionData.Policy evolutionPolicy;
+    private Map<Integer, Integer> levelCoverageMasks;
     private List<InGameTrade> modernTrades;
     private boolean tradesChanged;
 
@@ -165,6 +167,8 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         loadSpeciesStats();
         loadMoves();
         evolvedSpecies = ModernEmeraldStarterData.evolvedSpecies(rom);
+        evolutionPolicy = ModernEmeraldEvolutionData.read(rom);
+        levelCoverageMasks = ModernEmeraldEncounterData.levelCoverageMasks(rom);
         modernStarters = new ArrayList<>();
         for (int slot = 0; slot < 3; slot++) modernStarters.add(speciesByInternal.get(
                 readWord(ModernEmeraldStarterData.STARTERS + slot * 2)));
@@ -252,6 +256,12 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
                 .filter(group -> !group.isEmpty()).toList();
     }
 
+    public ModernEmeraldEvolutionData.Policy getEvolutionPolicy() { return evolutionPolicy; }
+    public int getMinimumEvolutionLevel(Species mon) { return evolutionPolicy.minimumLevel(getInternalId(mon)); }
+    public int getLevelCoverageMask(ModernEmeraldEncounterData.Table table) {
+        return levelCoverageMasks.getOrDefault(table.offset(), 0);
+    }
+
     private static Type modernType(int id) {
         return id == 18 ? Type.FAIRY : Gen3Constants.typeTable[id];
     }
@@ -327,7 +337,7 @@ public class ModernEmeraldRomHandler extends Gen3RomHandler {
         return valid;
     }
 
-    @Override public String getSupportLevel() { return "Partial (basic starters, wild Pokemon, NPC trades, move accuracy and PP; grey options are TODO)"; }
+    @Override public String getSupportLevel() { return "Partial (basic starters, wild Pokemon, no premature wild evolutions, NPC trades, move accuracy and PP; grey options are TODO)"; }
     @Override public List<Species> getSpecies() { return Collections.unmodifiableList(species); }
     @Override public List<Species> getSpeciesInclFormes() { return Collections.unmodifiableList(speciesWithFormes); }
     @Override public SpeciesSet getAltFormes() {

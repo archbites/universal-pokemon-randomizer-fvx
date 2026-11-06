@@ -37,6 +37,8 @@ class ModernEmeraldGuiTest {
                     assertSame(modern, field(gui, "romHandler"));
                     assertTrue(((JLabel) field(gui, "romNameLabel")).getText().contains("Modern Emerald 3.6"));
                     assertTrue(((JLabel) field(gui, "romSupportLabel")).getText().contains("Partial"));
+                    assertTrue(((JCheckBox) field(gui, "noPrematureEvosCheckbox")).isEnabled());
+                    assertTrue(((JCheckBox) field(gui, "noPrematureEvosCheckbox")).getToolTipText().contains("NPC trades are exempt"));
                     JTabbedPane tabs = (JTabbedPane) field(gui, "tabbedPane1");
                     for (int i = 0; i < tabs.getTabCount(); i++) assertTrue(tabs.isEnabledAt(i));
                     for (Field f : RandomizerGUI.class.getDeclaredFields()) {
@@ -109,6 +111,7 @@ class ModernEmeraldGuiTest {
                     imported.setRandomizeInGameTradesOTs(true);
                     imported.setRandomizeInGameTradesItems(true);
                     imported.setRandomizeWildPokemon(true);
+                    imported.setBanPrematureEvos(true);
                     imported.setRandomizeMovePPs(true);
                     imported.setStartersMod(Settings.StartersMod.RANDOM_BASIC);
                     imported.setStartersTypeMod(Settings.StartersTypeMod.FIRE_WATER_GRASS);
@@ -128,6 +131,7 @@ class ModernEmeraldGuiTest {
                     Settings exported = (Settings) settingsMethod.invoke(gui);
                     assertFalse(exported.isRandomizeIntroMon());
                     assertTrue(exported.isRandomizeWildPokemon());
+                    assertTrue(exported.isBanPrematureEvos());
                     assertTrue(exported.isRandomizeMovePPs());
                     assertEquals(Settings.StartersMod.RANDOM_BASIC, exported.getStartersMod());
                     assertEquals(Settings.StartersTypeMod.NONE, exported.getStartersTypeMod());

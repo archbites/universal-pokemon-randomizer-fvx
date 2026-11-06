@@ -17,7 +17,7 @@ public class WildEncounterRandomizer extends Randomizer {
     public void randomizeEncounters() {
         if (romHandler instanceof ModernEmeraldRomHandler modern) {
             if (settings.isRandomizeWildPokemon()) {
-                ModernEmeraldWildRandomizer.randomize(modern, settings.isCatchEmAllEncounters(), random);
+                ModernEmeraldWildRandomizer.randomize(modern, settings.isCatchEmAllEncounters(), settings.isBanPrematureEvos(), random);
                 changesMade = true;
             }
             return;

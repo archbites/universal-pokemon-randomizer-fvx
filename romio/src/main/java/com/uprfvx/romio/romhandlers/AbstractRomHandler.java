@@ -342,7 +342,7 @@ public abstract class AbstractRomHandler implements RomHandler {
         }
     }
 
-    private static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
+    static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
 
         // ==== CONFIGURATION PARAMETERS ====
         double p = 1;                // distance weighting exponent: 1/d^p
